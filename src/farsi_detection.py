@@ -7,9 +7,10 @@ import logging
 import pycld2
 from warcio.archiveiterator import ArchiveIterator
 from warcio.warcwriter import WARCWriter
-
+import fasttext
 
 SEGMENTS_FILE_NAME = sys.argv[1] + ".txt"
+model = fasttext.load_model('lid.176.bin')
 
 def fetch_segment_file(segment_file_path):
     s3 = sh.bash.bake("aws s3")
@@ -18,6 +19,13 @@ def fetch_segment_file(segment_file_path):
 def is_farsi(payload):
     result = pycld2.detect(payload)
     return result[2][0][0] == 'PERSIAN' or result[2][1][0] == 'PERSIAN' or result[2][2][0] == 'PERSIAN'
+
+def is_farsi_level2(text):
+    try:
+        predictions = model.predict(text, k=1)  
+        return predictions[0][0] == '__label__fa'
+    except:
+        return False
 
 def search_for_farsi(warc_address):
     parts = set()
@@ -28,11 +36,18 @@ def search_for_farsi(warc_address):
             if str(record.rec_headers.get_header('WARC-Type')) != 'response':
                 continue
             payload = record.content_stream().read()
+            payload_str = payload.decode("utf-8", errors="ignore")
+            payload_bytes = payload_str.encode()
             try:
-                if is_farsi(payload):
+                if is_farsi(payload_bytes):
                     parts.add(counter)
+                    logging.info('Detect a farsi warc with cld2.')
             except:
-                logging.info('There is problem to farsi detection.')
+                if is_farsi_level2(payload_str):
+                    parts.add(counter)
+                    logging.info('Detect a farsi warc with fasttext.')
+                else:
+                    logging.info('There is problem to farsi detection.')
     return parts
 
 def store_farsi_warcs(warc_address, indexes):
