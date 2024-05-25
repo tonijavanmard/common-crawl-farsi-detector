@@ -1,5 +1,5 @@
 import sys
-import sh
+import boto3
 import os
 import zipfile
 import shutil
@@ -9,12 +9,16 @@ from warcio.archiveiterator import ArchiveIterator
 from warcio.warcwriter import WARCWriter
 import fasttext
 
+ceph_bucket_name = 'commoncrawl'
+ceph_client = boto3.client('s3')
+
+
 SEGMENTS_FILE_NAME = sys.argv[1] + ".txt"
 model = fasttext.load_model('lid.176.bin')
 
-def fetch_segment_file(segment_file_path):
-    s3 = sh.bash.bake("aws s3")
-    s3.put("cp", f"s3://commoncrawl{segment_file_path}", ".")
+def fetch_segment_file(segment_file_path, save_path):
+    ceph_client.download_file(ceph_bucket_name, segment_file_path, save_path)
+    logging.info(f"download complete from ceph whit key {segment_file_path}")
     
 def is_farsi(payload):
     result = pycld2.detect(payload)
@@ -75,7 +79,7 @@ with open(SEGMENTS_FILE_NAME, 'r') as file:
     for line in file:
         segment_file_path = line.strip()
         segment_file_name = segment_file_path.split("/")[-1]
-        fetch_segment_file(segment_file_path)
+        fetch_segment_file(segment_file_path, segment_file_name)
         indexes = search_for_farsi(segment_file_name)
         store_farsi_warcs(segment_file_name, indexes)
         os.remove(segment_file_name)
