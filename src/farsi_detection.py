@@ -13,7 +13,7 @@ import psycopg2
 
 try:
     conn = psycopg2.connect(
-    database='common_crawl', user='postgres', password='11111111', host='database-2.c7g862s2e0k2.us-east-1.rds.amazonaws.com', port= '5432'
+    user='postgres', password='11111111', host='database-2.c7g862s2e0k2.us-east-1.rds.amazonaws.com', port= '5432'
     )
 except:
     logging.error("Unable to connect to DB.")
@@ -23,8 +23,6 @@ cursor = conn.cursor()
 ceph_bucket_name = 'commoncrawl'
 ceph_client = boto3.client('s3')
 
-
-SEGMENTS_FILE_NAME = sys.argv[1] + ".txt"
 model = fasttext.load_model('lid.176.bin')
 
 def fetch_segment_file(segment_file_path, save_path):
