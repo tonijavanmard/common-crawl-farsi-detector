@@ -8,6 +8,17 @@ import pycld2
 from warcio.archiveiterator import ArchiveIterator
 from warcio.warcwriter import WARCWriter
 import fasttext
+import time
+import psycopg2
+
+try:
+    conn = psycopg2.connect(
+    database='common_crawl', user='postgres', password='11111111', host='database-2.c7g862s2e0k2.us-east-1.rds.amazonaws.com', port= '5432'
+    )
+except:
+    logging.error("Unable to connect to DB.")
+    exit()
+cursor = conn.cursor()
 
 ceph_bucket_name = 'commoncrawl'
 ceph_client = boto3.client('s3')
@@ -75,13 +86,44 @@ def zip_folder(folder_path, zip_path):
                 file_path = os.path.join(root, file)
                 zip_file.write(file_path, os.path.relpath(file_path, folder_path))
 
-with open(SEGMENTS_FILE_NAME, 'r') as file:
-    for line in file:
-        segment_file_path = line.strip()
-        segment_file_name = segment_file_path.split("/")[-1]
-        fetch_segment_file(segment_file_path, segment_file_name)
-        indexes = search_for_farsi(segment_file_name)
-        store_farsi_warcs(segment_file_name, indexes)
-        os.remove(segment_file_name)
-        zip_folder(segment_file_name.split(".")[0], f'{segment_file_name.split(".")[0]}.zip')
-        shutil.rmtree(segment_file_name.split(".")[0])
+def get_segment_data():
+    query = "UPDATE segments" + \
+        " SET lock_time = NOW(), is_locked = TRUE" + \
+        " WHERE segment_id = (SELECT segment_id" + \
+        " FROM segments" + \
+        " WHERE is_locked = FALSE AND is_finished = FALSE ORDER BY segment_id ASC LIMIT 1)" + \
+        " RETURNING segments.*"
+    cursor.execute(query)
+    conn.commit()
+
+    try:
+        collection = cursor.fetchone()
+        id = collection[0]
+    except:
+        conn.close()
+        print("Can not fetch segment.")
+        time.sleep(8*3600)
+        exit()
+
+    if not id:
+        conn.close()
+        print("Can not fetch segment id.")
+        time.sleep(8*3600)
+        exit()
+    return id, collection[1], collection[2], collection[3]
+
+while True:
+    id, segment_name, segment_order, url = get_segment_data()
+    print(id, segment_name, segment_order, url)
+    segment_file_name = url.split("/")[-1]
+    fetch_segment_file(url, segment_file_name)
+    indexes = search_for_farsi(segment_file_name)
+    store_farsi_warcs(segment_file_name, indexes)
+    os.remove(segment_file_name)
+    zip_folder(segment_file_name.split(".")[0], f'{segment_file_name.split(".")[0]}.zip')
+    shutil.rmtree(segment_file_name.split(".")[0])
+    query = f"UPDATE segments SET finish_time = NOW(), is_finished = TRUE, is_locked = FALSE" + \
+            f" WHERE segment_id = {id};"
+
+    cursor.execute(query)
+    conn.commit()
