@@ -124,7 +124,7 @@ while True:
     os.remove(segment_file_name)
     zip_folder(segment_file_name.split(".")[0], f'{segment_file_name.split(".")[0]}.zip')
     shutil.rmtree(segment_file_name.split(".")[0])
-    uploadFile(f'{segment_file_name.split(".")[0]}.zip', f'{segment_name}/{segment_file_name}')
+    uploadFile(f'{segment_file_name.split(".")[0]}.zip', f'{segment_name}/{segment_file_name.split(".")[0]}.zip')
     os.remove(f'{segment_file_name.split(".")[0]}.zip')
     
     query = f"UPDATE segments SET finish_time = NOW(), is_finished = TRUE, is_locked = FALSE" + \
