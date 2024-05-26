@@ -115,16 +115,31 @@ def get_segment_data():
     return id, collection[1], collection[2], collection[3]
 
 while True:
+    start = time.time()
+    
     id, segment_name, segment_order, url = get_segment_data()
     print(id, segment_name, segment_order, url)
     segment_file_name = url.split("/")[-1]
+    
+    start_fetch = time.time()
     fetch_segment_file(url, segment_file_name)
+    print(f"Spend time FETCH is {(time.time()-start_fetch)*10**3:.03f}ms")
+    
+    start_lang_detect = time.time()
     indexes = search_for_farsi(segment_file_name)
+    print(f"Spend time LANG is {(time.time()-start_lang_detect)*10**3:.03f}ms")
+    
+    start_zip_create = time.time()
     store_farsi_warcs(segment_file_name, indexes)
     os.remove(segment_file_name)
     zip_folder(segment_file_name.split(".")[0], f'{segment_file_name.split(".")[0]}.zip')
     shutil.rmtree(segment_file_name.split(".")[0])
+    print(f"Spend time ZIP is {(time.time()-start_zip_create)*10**3:.03f}ms")
+    
+    start_upload = time.time()
     uploadFile(f'{segment_file_name.split(".")[0]}.zip', f'{segment_name}/{segment_file_name.split(".")[0]}.zip')
+    print(f"Spend time UPLOAD is {(time.time()-start_upload)*10**3:.03f}ms")
+    
     os.remove(f'{segment_file_name.split(".")[0]}.zip')
     
     query = f"UPDATE segments SET finish_time = NOW(), is_finished = TRUE, is_locked = FALSE" + \
@@ -132,3 +147,5 @@ while True:
 
     cursor.execute(query)
     conn.commit()
+    
+    print(f"Spend time is {(time.time()-start)*10**3:.03f}ms")
