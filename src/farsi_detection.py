@@ -29,6 +29,10 @@ def fetch_segment_file(segment_file_path, save_path):
     ceph_client.download_file(ceph_bucket_name, segment_file_path, save_path)
     logging.info(f"download complete from ceph whit key {segment_file_path}")
     
+def uploadFile(localFilePath, cephFilePath):
+    ceph_client.upload_file(Filename=localFilePath, Bucket='bashircommoncrawl', Key=cephFilePath)    
+    logging.info(f"upload complete on ceph whit key {cephFilePath}")
+    
 def is_farsi(payload):
     result = pycld2.detect(payload)
     return result[2][0][0] == 'PERSIAN' or result[2][1][0] == 'PERSIAN' or result[2][2][0] == 'PERSIAN'
@@ -120,6 +124,9 @@ while True:
     os.remove(segment_file_name)
     zip_folder(segment_file_name.split(".")[0], f'{segment_file_name.split(".")[0]}.zip')
     shutil.rmtree(segment_file_name.split(".")[0])
+    uploadFile(segment_file_name, f'{segment_name}/{segment_file_name}')
+    os.remove(segment_file_name)
+    
     query = f"UPDATE segments SET finish_time = NOW(), is_finished = TRUE, is_locked = FALSE" + \
             f" WHERE segment_id = {id};"
 
