@@ -115,6 +115,7 @@ while True:
     fetch_segment_file(url, segment_file_name)
     print(f"Spend time FETCH is {(time.time()-start_fetch)*10**3:.03f}ms")
     
+    os.makedirs(segment_file_folder, exist_ok=True)
     start_lang_detect = time.time()
     total_time = filter_warc(segment_file_name, segment_file_folder)
     print(f"Spend time LANG_SPECIFIC is {(total_time)*10**3:.03f}ms")
