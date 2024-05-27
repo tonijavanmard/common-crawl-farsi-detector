@@ -1,4 +1,4 @@
-import sys
+import io
 import boto3
 import os
 import zipfile
@@ -109,26 +109,28 @@ while True:
     id, segment_name, segment_order, url = get_segment_data()
     print(id, segment_name, segment_order, url)
     segment_file_name = url.split("/")[-1]
+    segment_file_folder = segment_file_name.split(".")[0]
     
     start_fetch = time.time()
     fetch_segment_file(url, segment_file_name)
     print(f"Spend time FETCH is {(time.time()-start_fetch)*10**3:.03f}ms")
     
     start_lang_detect = time.time()
-    total_time = filter_warc(segment_file_name, segment_file_name.split(".")[0])
+    total_time = filter_warc(segment_file_name, segment_file_folder)
     print(f"Spend time LANG_SPECIFIC is {(total_time)*10**3:.03f}ms")
     print(f"Spend time LANG is {(time.time()-start_lang_detect)*10**3:.03f}ms")
+    os.remove(segment_file_name)
     
     start_zip_create = time.time()
-    zip_folder(segment_file_name.split(".")[0], f'{segment_file_name.split(".")[0]}.zip')
-    shutil.rmtree(segment_file_name.split(".")[0])
+    zip_folder(segment_file_folder, f'{segment_file_folder}.zip')
+    shutil.rmtree(segment_file_folder)
     print(f"Spend time ZIP is {(time.time()-start_zip_create)*10**3:.03f}ms")
     
     start_upload = time.time()
-    uploadFile(f'{segment_file_name.split(".")[0]}.zip', f'{segment_name}/{segment_file_name.split(".")[0]}.zip')
+    uploadFile(f'{segment_file_folder}.zip', f'{segment_name}/{segment_file_folder}.zip')
     print(f"Spend time UPLOAD is {(time.time()-start_upload)*10**3:.03f}ms")
     
-    os.remove(f'{segment_file_name.split(".")[0]}.zip')
+    os.remove(f'{segment_file_folder}.zip')
     
     query = f"UPDATE segments SET finish_time = NOW(), is_finished = TRUE, is_locked = FALSE" + \
             f" WHERE segment_id = {id};"
