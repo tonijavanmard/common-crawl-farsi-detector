@@ -45,6 +45,7 @@ def is_farsi_level2(text):
         return False
 
 def search_for_farsi(warc_address):
+    total_time = 0
     parts = set()
     counter = -1
     with open(warc_address, 'rb') as stream:
@@ -55,6 +56,7 @@ def search_for_farsi(warc_address):
             payload = record.content_stream().read()
             payload_str = payload.decode("utf-8", errors="ignore")
             payload_bytes = payload_str.encode()
+            start = time.time()
             try:
                 if is_farsi(payload_bytes):
                     parts.add(counter)
@@ -65,7 +67,8 @@ def search_for_farsi(warc_address):
                     logging.info('Detect a farsi warc with fasttext.')
                 else:
                     logging.info('There is problem to farsi detection.')
-    return parts
+            total_time = total_time + time.time() - start
+    return parts, total_time
 
 def store_farsi_warcs(warc_address, indexes):
     folder = warc_address.split(".")[0]
@@ -126,12 +129,16 @@ while True:
     print(f"Spend time FETCH is {(time.time()-start_fetch)*10**3:.03f}ms")
     
     start_lang_detect = time.time()
-    indexes = search_for_farsi(segment_file_name)
+    indexes, total_time = search_for_farsi(segment_file_name)
+    print(f"Spend time LANG_SPECIFIC is {(total_time)*10**3:.03f}ms")
     print(f"Spend time LANG is {(time.time()-start_lang_detect)*10**3:.03f}ms")
     
-    start_zip_create = time.time()
+    start_warc_folder = time.time()
     store_farsi_warcs(segment_file_name, indexes)
     os.remove(segment_file_name)
+    print(f"Spend time WFOLDER is {(time.time()-start_warc_folder)*10**3:.03f}ms")
+    
+    start_zip_create = time.time()
     zip_folder(segment_file_name.split(".")[0], f'{segment_file_name.split(".")[0]}.zip')
     shutil.rmtree(segment_file_name.split(".")[0])
     print(f"Spend time ZIP is {(time.time()-start_zip_create)*10**3:.03f}ms")
