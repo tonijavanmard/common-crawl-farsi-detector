@@ -11,7 +11,7 @@ from warcio.statusandheaders import StatusAndHeaders
 import fasttext
 import time
 import psycopg2
-import concurrent.futures
+import multiprocessing
 
 try:
     conn = psycopg2.connect(
@@ -55,25 +55,21 @@ def is_record_farsi(record):
     except:
         return is_farsi_level2(payload_str), payload
 
-def save_record_if_farsi(record, output_warc_folder):
-    if record.rec_type == 'response':
-        flag, payload = is_record_farsi(record)
-        if flag:
-            digest = str(record.rec_headers.get_header('WARC-Payload-Digest'))[5:]
-            headers = StatusAndHeaders(record.http_headers.protocol, record.http_headers.headers, protocol='HTTP/1.0')
-            with open(f'{output_warc_folder}/{digest}.warc.gz', 'wb') as output_file:
-                writer = WARCWriter(output_file)
-                writer.write_record(writer.create_warc_record(record.rec_headers.get('WARC-Target-URI'), 'response', payload=io.BytesIO(payload), http_headers=headers))
-    return 1
-
 def filter_warc(input_warc, output_warc_folder):
-    sum = 0
-    with concurrent.futures.ProcessPoolExecutor() as executor:
-        with open(input_warc, 'rb') as stream:
-            futures = [executor.submit(save_record_if_farsi, record, output_warc_folder) for record in ArchiveIterator(stream)]
-            for future in concurrent.futures.as_completed(futures):
-                sum = sum + future.result
-    return sum       
+    total_time = 0
+    with open(input_warc, 'rb') as stream:
+        for record in ArchiveIterator(stream):
+            if record.rec_type == 'response':
+                start = time.time()
+                flag, payload = is_record_farsi(record)
+                total_time = total_time + time.time() - start
+                if flag:
+                    digest = str(record.rec_headers.get_header('WARC-Payload-Digest'))[5:]
+                    headers = StatusAndHeaders(record.http_headers.protocol, record.http_headers.headers, protocol='HTTP/1.0')
+                    with open(f'{output_warc_folder}/{digest}.warc.gz', 'wb') as output_file:
+                        writer = WARCWriter(output_file)
+                        writer.write_record(writer.create_warc_record(record.rec_headers.get('WARC-Target-URI'), 'response', payload=io.BytesIO(payload), http_headers=headers))
+    return total_time                    
 
 def zip_folder(folder_path, zip_path):
     with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zip_file:
@@ -108,7 +104,7 @@ def get_segment_data():
         exit()
     return id, collection[1], collection[2], collection[3]
 
-while True:
+def consume():
     start = time.time()
     
     id, segment_name, segment_order, url = get_segment_data()
@@ -122,8 +118,8 @@ while True:
     
     os.makedirs(segment_file_folder, exist_ok=True)
     start_lang_detect = time.time()
-    total_wrcs = filter_warc(segment_file_name, segment_file_folder)
-    print(f"total warcs is {total_wrcs}.")
+    total_time = filter_warc(segment_file_name, segment_file_folder)
+    print(f"Spend time LANG_SPECIFIC is {(total_time)*10**3:.03f}ms")
     print(f"Spend time LANG is {(time.time()-start_lang_detect)*10**3:.03f}ms")
     os.remove(segment_file_name)
     
@@ -145,3 +141,16 @@ while True:
     conn.commit()
     
     print(f"Spend time is {(time.time()-start)*10**3:.03f}ms")
+    
+def continuous_consume():
+    while True:
+        consume
+
+if __name__ == '__main__':
+    process1 = multiprocessing.Process(target=continuous_consume)
+    process2 = multiprocessing.Process(target=continuous_consume)
+    process1.start()
+    process2.start()
+    process1.join()
+    print('aaaaaaaaaaaaaaaa')
+    process2.join()
