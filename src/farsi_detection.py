@@ -144,7 +144,7 @@ def consume():
     
 def continuous_consume():
     while True:
-        consume
+        consume()
 
 if __name__ == '__main__':
     process1 = multiprocessing.Process(target=continuous_consume)
