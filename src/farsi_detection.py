@@ -11,7 +11,6 @@ from warcio.statusandheaders import StatusAndHeaders
 import fasttext
 import time
 import psycopg2
-import multiprocessing
 
 try:
     conn = psycopg2.connect(
@@ -104,7 +103,7 @@ def get_segment_data():
         exit()
     return id, collection[1], collection[2], collection[3]
 
-def consume():
+while True:
     start = time.time()
     
     id, segment_name, segment_order, url = get_segment_data()
@@ -142,15 +141,3 @@ def consume():
     
     print(f"Spend time is {(time.time()-start)*10**3:.03f}ms")
     
-def continuous_consume():
-    while True:
-        consume()
-
-if __name__ == '__main__':
-    process1 = multiprocessing.Process(target=continuous_consume)
-    process2 = multiprocessing.Process(target=continuous_consume)
-    process1.start()
-    process2.start()
-    process1.join()
-    print('aaaaaaaaaaaaaaaa')
-    process2.join()
