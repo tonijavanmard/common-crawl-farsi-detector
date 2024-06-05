@@ -61,7 +61,7 @@ def is_record_farsi(record):
     try:
         flag = is_farsi(payload_bytes)
     except:
-        flag = is_farsi_level2(payload_str)
+        flag = False
     if flag:
         try:
             clean_payload_str = content_extractor(payload_str).replace('\n', '')
