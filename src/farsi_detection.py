@@ -57,8 +57,17 @@ def is_farsi_level2(text):
 def is_record_farsi(record):
     payload = record.content_stream().read()
     payload_str = payload.decode("utf-8", errors="ignore")
-    clean_payload_str = content_extractor(payload_str).replace('\n', '')
-    return is_farsi_level2(clean_payload_str), payload
+    payload_bytes = payload_str.encode()
+    try:
+        flag = is_farsi(payload_bytes)
+    except:
+        flag = is_farsi_level2(payload_str)
+    if flag:
+        try:
+            clean_payload_str = content_extractor(payload_str).replace('\n', '')
+            return is_farsi_level2(clean_payload_str), payload
+        except:
+            return False, payload
 
 def filter_warc(input_warc, output_warc_folder):
     total_time = 0
