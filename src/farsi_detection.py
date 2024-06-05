@@ -68,6 +68,8 @@ def is_record_farsi(record):
             return is_farsi_level2(clean_payload_str), payload
         except:
             return False, payload
+    else:
+        return False, payload
 
 def filter_warc(input_warc, output_warc_folder):
     total_time = 0
