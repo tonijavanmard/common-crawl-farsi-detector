@@ -11,6 +11,7 @@ from warcio.statusandheaders import StatusAndHeaders
 import fasttext
 import time
 import psycopg2
+from newspaper import Article
 
 try:
     conn = psycopg2.connect(
@@ -38,6 +39,14 @@ def is_farsi(payload):
     result = pycld2.detect(payload)
     return result[2][0][0] == 'PERSIAN' or result[2][1][0] == 'PERSIAN' or result[2][2][0] == 'PERSIAN'
 
+def content_extractor(html):
+    if not html:
+        return '';
+    article: Article = Article("", fetch_images=False)
+    article.download(input_html=html)
+    article.parse()
+    return article.text
+
 def is_farsi_level2(text):
     try:
         predictions = model.predict(text, k=1)  
@@ -48,11 +57,8 @@ def is_farsi_level2(text):
 def is_record_farsi(record):
     payload = record.content_stream().read()
     payload_str = payload.decode("utf-8", errors="ignore")
-    payload_bytes = payload_str.encode()
-    try:
-        return is_farsi(payload_bytes), payload
-    except:
-        return is_farsi_level2(payload_str), payload
+    clean_payload_str = content_extractor(payload_str).replace('\n', '')
+    return is_farsi_level2(clean_payload_str), payload
 
 def filter_warc(input_warc, output_warc_folder):
     total_time = 0
