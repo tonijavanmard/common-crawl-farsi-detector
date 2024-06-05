@@ -5,3 +5,4 @@ pytest-shutil==1.7.0
 boto3
 psycopg2-binary==2.9.9
 newspaper3k==0.2.8
+lxml[html_clean]
